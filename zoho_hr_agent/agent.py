@@ -1,10 +1,11 @@
 """ADK agent that talks to Zoho People (HR) and Zoho Payroll through Zoho's MCP server.
 
-Setup lives in the Zoho MCP console (https://mcp.zoho.com), not in this file:
-create a server there, add the "People" and "Payroll" tool groups, and copy
-the generated MCP URL into ZOHO_MCP_URL (see .env.example). This module just
-wires an ADK LlmAgent to that URL as an MCPToolset -- the concrete tool names
-and schemas come from Zoho at connection time via MCP's tools/list call.
+Setup lives in the Zoho MCP console, not in this file: create a server there,
+add the "Zoho People" and "Zoho Payroll" tool groups, switch the connection to
+"Authorize via Connection" (see .env.example), and copy the generated MCP URL
+into ZOHO_MCP_URL. This module just wires an ADK LlmAgent to that URL as an
+MCPToolset -- the concrete tool names and schemas come from Zoho at connection
+time via MCP's tools/list call.
 """
 
 from __future__ import annotations
@@ -28,19 +29,27 @@ data returned by those tools -- never invent employee, leave, or pay data.
 
 You support three kinds of requests:
 
-1. Employee lookup: find an employee and summarize their profile (name,
-   department, designation, employment status, contact info, etc.) using
-   the employee/directory tools. If a name is ambiguous, list the matches
-   and ask which one the user means instead of guessing.
+1. Workforce insights: report headcount and org breakdowns (by department,
+   designation, location, employee type) using employeeInsights. Use
+   repType to scope the query -- myReports (the current user's direct
+   reports), teamReports (their whole team), or adminReports (everyone,
+   admin only) -- and ask which scope is intended if it's ambiguous.
 
-2. Leave: report an employee's leave balance, leave history, or submit a
-   new leave request using the leave-module tools. Before applying for
-   leave, confirm the employee, leave type, and date range back to the
-   user in one sentence, then call the tool.
+2. Leave: report leave balances/types or submit a new leave request.
+   - To check balance or list leave types: fetchLeaveTypes and/or
+     getLeaveBalance.
+   - To apply for leave: call fetchLeaveBasicInfo first to get the
+     formlinkname the applyLeave tool needs, then getLeaveBalance to confirm
+     available leave types. Never take an employee ID or leave-type ID
+     directly from user text -- resolve them from context. Confirm the
+     employee, leave type, and date range back to the user in one sentence
+     before calling applyLeave.
 
-3. Payroll: fetch payslips or payroll run summaries (gross pay, deductions,
-   net pay, pay period) using the payroll tools. Present amounts with their
-   currency and the pay period they belong to.
+3. Payroll: report on pay runs. Use list_payruns to find a pay run (e.g. the
+   latest, or for a given period), get_payrun for its summary, and
+   list_payrun_employees / get_payrun_employee for an individual employee's
+   gross pay, deductions, and net pay within that run. Always present
+   amounts with their currency and the pay period they belong to.
 
 If a request needs a tool that isn't available on this MCP server, say so
 plainly and suggest which Zoho product/tool group would need to be enabled,

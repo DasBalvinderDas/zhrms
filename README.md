@@ -12,17 +12,18 @@ whatever tools Zoho exposes into agent-callable tools at runtime.
         ▼
  Zoho MCP server  (https://<your-server>.zohomcp.in/mcp/...)
         │
-        ├── Zoho People   (employee directory, leave)
-        └── Zoho Payroll  (payslips, payroll runs)
+        ├── Zoho People   (workforce insights, leave)
+        └── Zoho Payroll  (pay runs, employee pay details)
 ```
 
 **Use cases demoed:**
 
-1. **Employee lookup** — "Look up Jane Doe" → employee directory tools.
-2. **Leave** — check leave balance and submit a leave request → Zoho
+1. **Workforce insights** — headcount/org breakdown by department,
+   designation, location → Zoho People's `employeeInsights` tool.
+2. **Leave** — check leave types/balance and submit a leave request → Zoho
    People leave-module tools.
-3. **Payroll** — fetch the latest payslip / a payroll run summary → Zoho
-   Payroll tools.
+3. **Payroll** — pull up a pay run and an employee's pay details within it
+   (gross pay, deductions, net pay) → Zoho Payroll pay-run tools.
 
 The agent's instructions (`zoho_hr_agent/agent.py`) constrain it to these
 three areas and tell it to only report data actually returned by the MCP
@@ -95,17 +96,24 @@ If you don't already have one:
 
 1. Sign in to the Zoho MCP console for your data center (e.g.
    `mcp.zoho.in` or `mcp.zoho.com`) and create a server.
-2. `Add Tools` → select the **People** and **Payroll** products, and enable
-   the employee/leave and payslip/payroll-run tools you want to demo.
-3. Complete the OAuth authorization for those products.
-4. Open the server's **Connect** tab and copy the generated MCP URL. It
-   already carries your server's auth token embedded in the URL, e.g.:
-   `https://<server-name>.zohomcp.in/mcp/<token>/message`
+2. **Tools** → `Add Tools` → select **Zoho People** and **Zoho Payroll**, and
+   enable the Leave, Reports/Insights, and Pay Run tool groups (whatever
+   modules you want the agent to reach).
+3. **Connection** → switch the authorization mode to **"Authorize via
+   Connection"** (it starts on "Authorize on Demand"). This matters: "on
+   demand" means every MCP client has to complete its own interactive OAuth
+   browser login against the server, which doesn't work from a headless
+   shell or a deployed agent. "Via Connection" has *you* (the admin)
+   pre-authorize every tool once, in the console, and bakes that
+   authorization into the server URL itself — no login needed at connection
+   time. Confirm the switch; it regenerates the URL's embedded token.
+4. Open the **Connect** tab and copy the generated MCP URL, e.g.:
+   `https://<your-server>.zohomcp.in/mcp/<token>/message`
 
 Full walkthrough: [Zoho MCP Implementation Guide](https://help.zoho.com/portal/en/kb/mcp/implementation-guide/articles/zoho-mcp-implementation-guide).
 
-If you were already handed a URL like the one above, you can skip straight to
-filling it in.
+If you were already handed a URL like the one above (and it's already on
+"Authorize via Connection"), you can skip straight to filling it in.
 
 Now fill this line into `.env`:
 
@@ -114,9 +122,9 @@ Now fill this line into `.env`:
 | `ZOHO_MCP_URL` | the MCP URL from above |
 
 Leave `ZOHO_MCP_API_KEY` blank and `ZOHO_MCP_TRANSPORT=streamable_http` as-is
-— the auth token embedded in `ZOHO_MCP_URL` is all that's needed. (If Step 6
-fails with a transport/session error, try `ZOHO_MCP_TRANSPORT=sse` instead —
-see Troubleshooting.)
+— the token embedded in `ZOHO_MCP_URL` is all that's needed once the server
+is on "Authorize via Connection." (If Step 6 fails with a transport/session
+error, try `ZOHO_MCP_TRANSPORT=sse` instead — see Troubleshooting.)
 
 ### Step 6 — Verify the Zoho MCP connection
 
@@ -147,6 +155,17 @@ adk run zoho_hr_agent
 
 ## Troubleshooting
 
+- **`discover_tools.py` fails with `401` on the MCP request** — the server is
+  still on "Authorize on Demand" (Step 5.3). Switch it to "Authorize via
+  Connection" in the console's **Connection** tab, copy the *new* URL (the
+  switch regenerates the embedded token, invalidating the old one), and
+  update `ZOHO_MCP_URL` in `.env`.
+  - Don't try to work around this with `mcp-remote`'s interactive OAuth flow
+    from Cloud Shell — the browser's redirect back to `localhost:<port>`
+    lands on your laptop, not the Cloud Shell VM, so it can't complete
+    without extra port-forwarding gymnastics. "Authorize via Connection"
+    avoids needing that login at all, which is also the right shape for a
+    headless deployment (e.g. Agent Engine) later.
 - **`discover_tools.py` hangs or errors about the transport/session** — the
   URL may need the legacy SSE transport instead of Streamable HTTP. Set
   `ZOHO_MCP_TRANSPORT=sse` in `.env` and re-run.
@@ -155,8 +174,8 @@ adk run zoho_hr_agent
   the project (Step 4), or `GOOGLE_CLOUD_LOCATION` doesn't have Gemini
   available.
 - **`discover_tools.py` connects but returns 0 tools** — no tool groups are
-  enabled on the Zoho MCP server yet, or `ZOHO_MCP_TOOL_FILTER` in `.env` is
-  filtering everything out (leave it blank to see everything).
+  enabled on the Zoho MCP server yet (Step 5.2), or `ZOHO_MCP_TOOL_FILTER` in
+  `.env` is filtering everything out (leave it blank to see everything).
 - **Want AI Studio instead of Vertex AI?** — set
   `GOOGLE_GENAI_USE_VERTEXAI=FALSE` and `GOOGLE_API_KEY=...` in `.env`
   instead of the three `GOOGLE_CLOUD_*` variables. Everything else stays the

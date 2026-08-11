@@ -31,7 +31,8 @@ DEFAULT_PROMPTS = [
     # 2. Workforce insights
     "Give me a headcount breakdown by department for the whole org.",
     # 3. Leave
-    "What leave types are configured, and what's my current leave balance?",
+    "Is there a leave tracker set up? If so, show any leave requests or "
+    "records for Asha Verma.",
     # 4. Payroll
     "Show me the most recent pay run and the pay details for its employees "
     "-- gross pay, deductions, and net pay.",

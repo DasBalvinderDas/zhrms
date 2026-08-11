@@ -12,21 +12,23 @@ whatever tools Zoho exposes into agent-callable tools at runtime.
         ▼
  Zoho MCP server  (https://<your-server>.zohomcp.in/mcp/...)
         │
-        ├── Zoho People   (workforce insights, leave)
+        ├── Zoho People   (employee lookup, workforce insights, leave)
         └── Zoho Payroll  (pay runs, employee pay details)
 ```
 
 **Use cases demoed:**
 
-1. **Workforce insights** — headcount/org breakdown by department,
+1. **Employee lookup** — find an employee by name/ID/department and
+   summarize their profile → Zoho People's `getEmployeeBasicDetails`.
+2. **Workforce insights** — headcount/org breakdown by department,
    designation, location → Zoho People's `employeeInsights` tool.
-2. **Leave** — check leave types/balance and submit a leave request → Zoho
+3. **Leave** — check leave types/balance and submit a leave request → Zoho
    People leave-module tools.
-3. **Payroll** — pull up a pay run and an employee's pay details within it
+4. **Payroll** — pull up a pay run and an employee's pay details within it
    (gross pay, deductions, net pay) → Zoho Payroll pay-run tools.
 
 The agent's instructions (`zoho_hr_agent/agent.py`) constrain it to these
-three areas and tell it to only report data actually returned by the MCP
+four areas and tell it to only report data actually returned by the MCP
 tools — never to fabricate employee or pay data.
 
 ---
@@ -136,9 +138,26 @@ This connects to your Zoho MCP server and prints every tool it exposes —
 confirms the URL/auth are correct, and shows you the real tool names before
 the agent ever runs (they depend on which tool groups you enabled in Step 5).
 
-### Step 7 — Run the demo
+### Step 7 — Seed demo data (only if the org is empty)
 
-Scripted run of the three use cases in one session:
+If this is a brand-new Zoho People organization with no employees yet, the
+demo use cases will just report "no data." Seed a small demo dataset (2
+departments, 3 employees, 2 leave types) via Zoho's own MCP tools:
+
+```bash
+python scripts/seed_demo_data.py
+```
+
+This uses a separate, wider set of Zoho MCP tools (generic form/record CRUD)
+than the conversational agent, and is safe to re-run — it checks for
+existing records first. See the script's docstring for exactly what it
+creates, and its one limitation: it can't set up Zoho **Payroll** employees
+or salary structures (no MCP tool currently does that), so payroll pay runs
+still need to be created manually in the Payroll web UI first.
+
+### Step 8 — Run the demo
+
+Scripted run of the four use cases in one session:
 
 ```bash
 python scripts/run_demo.py
@@ -192,20 +211,26 @@ adk run zoho_hr_agent
 
 ```
 zoho_hr_agent/
-  agent.py           # MCPToolset -> Zoho MCP, LlmAgent with HR/payroll instructions
+  agent.py            # MCPToolset -> Zoho MCP, LlmAgent with HR/payroll instructions
 scripts/
-  discover_tools.py  # connects and lists available Zoho MCP tools
-  run_demo.py         # scripted run of the 3 use cases via InMemoryRunner
-.env.example          # required/optional environment variables
+  discover_tools.py   # connects and lists available Zoho MCP tools
+  seed_demo_data.py   # one-time: creates demo departments/employees/leave types
+  run_demo.py         # scripted run of the 4 use cases via InMemoryRunner
+.env.example           # required/optional environment variables
 ```
 
 ## Notes / next steps
 
 - This POC exposes whatever tools the Zoho MCP server is configured with; no
-  tool names are hard-coded, so it degrades gracefully to "not available" if
-  a module isn't enabled. Narrow the surface with `ZOHO_MCP_TOOL_FILTER` in
-  `.env` once you know the exact tool names from `discover_tools.py`.
-- Not covered yet, natural next steps for a wider POC: multi-turn employee
-  disambiguation, write-actions confirmation (e.g. "are you sure?" before
-  submitting leave), and swapping `InMemorySessionService` for a persistent
-  one.
+  tool names are hard-coded into the connection logic, so it degrades
+  gracefully to "not available" if a module isn't enabled. Narrow the surface
+  with `ZOHO_MCP_TOOL_FILTER` in `.env` once you know the exact tool names
+  from `discover_tools.py`.
+- Zoho Payroll has no MCP tool for creating employees or salary structures
+  (only `fetch*`/report tools) as of this writing, so `seed_demo_data.py`
+  can't set up payroll data end-to-end -- that piece is manual, in the
+  Payroll web UI, until Zoho exposes it.
+- Not covered yet, natural next steps for a wider POC: write-actions
+  confirmation (e.g. "are you sure?" before submitting leave), and swapping
+  `InMemorySessionService` for a persistent one ahead of an Agent Engine
+  deployment.

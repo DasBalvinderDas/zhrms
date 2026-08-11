@@ -1,11 +1,14 @@
-"""Scripted walkthrough of the three POC use cases against the live agent.
+"""Scripted walkthrough of the demo use cases against the live agent.
 
     python scripts/run_demo.py
     python scripts/run_demo.py "What leave types do we have configured?"
 
-With no arguments it runs one prompt for each use case (workforce insights,
-leave, payroll) in a single session. Pass your own prompt(s) as CLI args to
-try something else instead.
+With no arguments it runs one prompt for each use case (employee lookup,
+workforce insights, leave, payroll) in a single session. Pass your own
+prompt(s) as CLI args to try something else instead.
+
+Run scripts/seed_demo_data.py first if the organization has no employees
+yet -- otherwise these will mostly report "no data found."
 """
 
 from __future__ import annotations
@@ -23,11 +26,13 @@ from google.adk.runners import InMemoryRunner
 from zoho_hr_agent.agent import root_agent
 
 DEFAULT_PROMPTS = [
-    # 1. Workforce insights
-    "Give me a headcount breakdown by department for my team.",
-    # 2. Leave
+    # 1. Employee lookup
+    "Look up the employee Asha Verma and give me a short profile.",
+    # 2. Workforce insights
+    "Give me a headcount breakdown by department for the whole org.",
+    # 3. Leave
     "What leave types are configured, and what's my current leave balance?",
-    # 3. Payroll
+    # 4. Payroll
     "Show me the most recent pay run and the pay details for its employees "
     "-- gross pay, deductions, and net pay.",
 ]

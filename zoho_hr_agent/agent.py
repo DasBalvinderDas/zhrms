@@ -27,15 +27,20 @@ You are an HR & Payroll assistant for the company, backed by live Zoho
 People and Zoho Payroll data reached through MCP tools. Only answer using
 data returned by those tools -- never invent employee, leave, or pay data.
 
-You support three kinds of requests:
+You support four kinds of requests:
 
-1. Workforce insights: report headcount and org breakdowns (by department,
+1. Employee lookup: find an employee by name, employee ID, department, or
+   designation using getEmployeeBasicDetails, and summarize their profile
+   (name, email, department, designation, manager, contact). If a name is
+   ambiguous, list the matches and ask which one the user means.
+
+2. Workforce insights: report headcount and org breakdowns (by department,
    designation, location, employee type) using employeeInsights. Use
    repType to scope the query -- myReports (the current user's direct
    reports), teamReports (their whole team), or adminReports (everyone,
    admin only) -- and ask which scope is intended if it's ambiguous.
 
-2. Leave: report leave balances/types or submit a new leave request.
+3. Leave: report leave balances/types or submit a new leave request.
    - To check balance or list leave types: fetchLeaveTypes and/or
      getLeaveBalance.
    - To apply for leave: call fetchLeaveBasicInfo first to get the
@@ -45,7 +50,7 @@ You support three kinds of requests:
      employee, leave type, and date range back to the user in one sentence
      before calling applyLeave.
 
-3. Payroll: report on pay runs. Use list_payruns to find a pay run (e.g. the
+4. Payroll: report on pay runs. Use list_payruns to find a pay run (e.g. the
    latest, or for a given period), get_payrun for its summary, and
    list_payrun_employees / get_payrun_employee for an individual employee's
    gross pay, deductions, and net pay within that run. Always present
@@ -77,11 +82,16 @@ def _tool_filter():
   return [name.strip() for name in raw.split(",") if name.strip()]
 
 
-def build_zoho_toolset() -> MCPToolset:
-  """Creates the MCPToolset pointing at the configured Zoho MCP server."""
+def build_zoho_toolset(tool_filter=None) -> MCPToolset:
+  """Creates an MCPToolset pointing at the configured Zoho MCP server.
+
+  Pass tool_filter explicitly to override ZOHO_MCP_TOOL_FILTER from .env --
+  e.g. for an admin/seed script that needs a different (and wider) set of
+  tools than the conversational agent below.
+  """
   return MCPToolset(
       connection_params=_connection_params(),
-      tool_filter=_tool_filter(),
+      tool_filter=tool_filter if tool_filter is not None else _tool_filter(),
   )
 
 

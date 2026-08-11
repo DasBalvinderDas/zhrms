@@ -41,17 +41,33 @@ tools — never to fabricate employee or pay data.
 
 Full walkthrough: [Zoho MCP Implementation Guide](https://help.zoho.com/portal/en/kb/mcp/implementation-guide/articles/zoho-mcp-implementation-guide).
 
-## 2. Configure this project
+## 2. Configure this project (GCP Cloud Shell)
+
+This POC uses Vertex AI for Gemini, authenticated with your GCP project via
+Application Default Credentials — no API key needed.
 
 ```bash
+# one-time per Cloud Shell environment
+gcloud config set project YOUR_PROJECT_ID
+gcloud services enable aiplatform.googleapis.com
+gcloud auth application-default login
+
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
 # then edit .env:
-#   GOOGLE_API_KEY   -> Gemini key from https://aistudio.google.com/apikey
-#   ZOHO_MCP_URL     -> the MCP URL you copied above
+#   GOOGLE_CLOUD_PROJECT  -> your GCP project ID
+#   GOOGLE_CLOUD_LOCATION -> e.g. us-central1 (must have Vertex AI Gemini access)
+#   ZOHO_MCP_URL          -> the MCP URL you copied above
 ```
+
+Your Cloud Shell user needs the `roles/aiplatform.user` IAM role on the
+project (or broader) to call Gemini via Vertex AI.
+
+If you'd rather skip Vertex AI and use a plain AI Studio key instead, set
+`GOOGLE_GENAI_USE_VERTEXAI=FALSE` and `GOOGLE_API_KEY=...` in `.env` — the
+rest of the project is unaffected either way.
 
 ## 3. Try it
 

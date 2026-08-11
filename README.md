@@ -173,6 +173,11 @@ adk run zoho_hr_agent
   `roles/aiplatform.user`, or `aiplatform.googleapis.com` isn't enabled on
   the project (Step 4), or `GOOGLE_CLOUD_LOCATION` doesn't have Gemini
   available.
+- **404 "Publisher model ... was not found" calling Gemini** — the model in
+  `ADK_MODEL` isn't available as a Vertex AI publisher model in your
+  project/region (older model IDs get superseded over time). Set
+  `ADK_MODEL=gemini-2.5-flash` in `.env`, or check the Model Garden in the
+  Cloud Console for a currently available model ID in your region.
 - **`discover_tools.py` connects but returns 0 tools** — no tool groups are
   enabled on the Zoho MCP server yet (Step 5.2), or `ZOHO_MCP_TOOL_FILTER` in
   `.env` is filtering everything out (leave it blank to see everything).

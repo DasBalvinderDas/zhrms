@@ -87,7 +87,7 @@ def build_zoho_toolset() -> MCPToolset:
 
 root_agent = Agent(
     name="zoho_hr_payroll_agent",
-    model=os.environ.get("ADK_MODEL", "gemini-2.0-flash"),
+    model=os.environ.get("ADK_MODEL", "gemini-2.5-flash"),
     description="HR & payroll assistant backed by Zoho People and Zoho Payroll via MCP.",
     instruction=INSTRUCTION,
     tools=[build_zoho_toolset()],

@@ -51,7 +51,24 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Step 3 — Enable Vertex AI on your GCP project
+### Step 3 — Create your `.env` file
+
+All configuration for this project — GCP project, region, Zoho MCP URL —
+lives in one `.env` file. Create it now; the next two steps tell you exactly
+which line to fill in as you go.
+
+```bash
+cp .env.example .env
+```
+
+Open it in the Cloud Shell editor (or `nano .env`) and keep it open — you'll
+add values to it in Steps 4 and 5.
+
+`.env` is git-ignored — it's never committed, so it's safe to put real
+credentials there. Never paste its contents into a commit, issue, or chat
+message.
+
+### Step 4 — Enable Vertex AI on your GCP project
 
 The agent calls Gemini through Vertex AI using your GCP project, authenticated
 with Application Default Credentials — no separate API key needed.
@@ -65,7 +82,14 @@ gcloud auth application-default login
 Your Cloud Shell user (or the identity running this) needs the
 `roles/aiplatform.user` IAM role on the project to call Gemini.
 
-### Step 4 — Get a Zoho MCP server URL
+Now fill these two lines into `.env`:
+
+| Variable | Value |
+|---|---|
+| `GOOGLE_CLOUD_PROJECT` | your GCP project ID (same as `YOUR_PROJECT_ID` above) |
+| `GOOGLE_CLOUD_LOCATION` | a region with Vertex AI Gemini access, e.g. `us-central1` |
+
+### Step 5 — Get a Zoho MCP server URL
 
 If you don't already have one:
 
@@ -80,30 +104,19 @@ If you don't already have one:
 
 Full walkthrough: [Zoho MCP Implementation Guide](https://help.zoho.com/portal/en/kb/mcp/implementation-guide/articles/zoho-mcp-implementation-guide).
 
-If you were already handed a URL like the one above, skip straight to Step 5.
+If you were already handed a URL like the one above, you can skip straight to
+filling it in.
 
-### Step 5 — Configure `.env`
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in:
+Now fill this line into `.env`:
 
 | Variable | Value |
 |---|---|
-| `GOOGLE_CLOUD_PROJECT` | your GCP project ID |
-| `GOOGLE_CLOUD_LOCATION` | a region with Vertex AI Gemini access, e.g. `us-central1` |
-| `ZOHO_MCP_URL` | the MCP URL from Step 4 |
+| `ZOHO_MCP_URL` | the MCP URL from above |
 
 Leave `ZOHO_MCP_API_KEY` blank and `ZOHO_MCP_TRANSPORT=streamable_http` as-is
 — the auth token embedded in `ZOHO_MCP_URL` is all that's needed. (If Step 6
 fails with a transport/session error, try `ZOHO_MCP_TRANSPORT=sse` instead —
 see Troubleshooting.)
-
-`.env` is git-ignored — it's never committed, so it's safe to put real
-credentials there. Never paste the filled-in URL into a commit, issue, or
-chat message.
 
 ### Step 6 — Verify the Zoho MCP connection
 
@@ -113,7 +126,7 @@ python scripts/discover_tools.py
 
 This connects to your Zoho MCP server and prints every tool it exposes —
 confirms the URL/auth are correct, and shows you the real tool names before
-the agent ever runs (they depend on which tool groups you enabled in Step 4).
+the agent ever runs (they depend on which tool groups you enabled in Step 5).
 
 ### Step 7 — Run the demo
 
@@ -139,7 +152,7 @@ adk run zoho_hr_agent
   `ZOHO_MCP_TRANSPORT=sse` in `.env` and re-run.
 - **403 / permission denied calling Gemini** — your account is missing
   `roles/aiplatform.user`, or `aiplatform.googleapis.com` isn't enabled on
-  the project (Step 3), or `GOOGLE_CLOUD_LOCATION` doesn't have Gemini
+  the project (Step 4), or `GOOGLE_CLOUD_LOCATION` doesn't have Gemini
   available.
 - **`discover_tools.py` connects but returns 0 tools** — no tool groups are
   enabled on the Zoho MCP server yet, or `ZOHO_MCP_TOOL_FILTER` in `.env` is

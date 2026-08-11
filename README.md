@@ -99,8 +99,14 @@ If you don't already have one:
 1. Sign in to the Zoho MCP console for your data center (e.g.
    `mcp.zoho.in` or `mcp.zoho.com`) and create a server.
 2. **Tools** → `Add Tools` → select **Zoho People** and **Zoho Payroll**, and
-   enable the Leave, Reports/Insights, and Pay Run tool groups (whatever
-   modules you want the agent to reach).
+   enable:
+   - Zoho People: **Leave**, **Forms**, **Employees** tool groups.
+   - Zoho Payroll: **Payruns**, **Departments**, **Designations**,
+     **Work Locations**, **Employees** tool groups.
+   Zoho MCP consoles have an overall tool-count cap per server (this repo
+   was built against a 300-tool cap) -- these groups alone come to roughly
+   105 tools, well within budget; skip anything else (Benefits, Performance,
+   TimeTracker, etc.) that isn't needed for the 4 use cases here.
 3. **Connection** → switch the authorization mode to **"Authorize via
    Connection"** (it starts on "Authorize on Demand"). This matters: "on
    demand" means every MCP client has to complete its own interactive OAuth
@@ -140,20 +146,23 @@ the agent ever runs (they depend on which tool groups you enabled in Step 5).
 
 ### Step 7 — Seed demo data (only if the org is empty)
 
-If this is a brand-new Zoho People organization with no employees yet, the
-demo use cases will just report "no data." Seed a small demo dataset (2
-departments, 3 employees, 2 leave types) via Zoho's own MCP tools:
+If this is a brand-new organization with no employees yet, the demo use
+cases will just report "no data." Seed a small demo dataset — 2 departments,
+3 employees, and 2 leave types in Zoho People, plus matching departments,
+designations, a work location, and employees in Zoho Payroll — via Zoho's
+own MCP tools:
 
 ```bash
 python scripts/seed_demo_data.py
 ```
 
-This uses a separate, wider set of Zoho MCP tools (generic form/record CRUD)
-than the conversational agent, and is safe to re-run — it checks for
-existing records first. See the script's docstring for exactly what it
-creates, and its one limitation: it can't set up Zoho **Payroll** employees
-or salary structures (no MCP tool currently does that), so payroll pay runs
-still need to be created manually in the Payroll web UI first.
+This uses a separate, wider set of Zoho MCP tools (form/record CRUD, plus
+Payroll's dedicated create_* tools) than the conversational agent, and is
+safe to re-run — it checks for existing records first. See the script's
+docstring for exactly what it creates, and its one limitation: it can't
+assign employee salaries or create a pay run (no MCP tool currently sets a
+salary, only fetch/list tools exist for that), so a pay run with real
+numbers in it still needs to be set up once manually in the Payroll web UI.
 
 ### Step 8 — Run the demo
 
@@ -226,10 +235,12 @@ scripts/
   gracefully to "not available" if a module isn't enabled. Narrow the surface
   with `ZOHO_MCP_TOOL_FILTER` in `.env` once you know the exact tool names
   from `discover_tools.py`.
-- Zoho Payroll has no MCP tool for creating employees or salary structures
-  (only `fetch*`/report tools) as of this writing, so `seed_demo_data.py`
-  can't set up payroll data end-to-end -- that piece is manual, in the
-  Payroll web UI, until Zoho exposes it.
+- Zoho Payroll has dedicated tools for departments, designations, work
+  locations, and employees, but nothing to set an employee's salary (only
+  `fetch*`/list tools exist for salary templates/components) as of this
+  writing -- so `seed_demo_data.py` can create Payroll employees, but a pay
+  run with real numbers in it still needs salary assigned manually once in
+  the Payroll web UI.
 - Not covered yet, natural next steps for a wider POC: write-actions
   confirmation (e.g. "are you sure?" before submitting leave), and swapping
   `InMemorySessionService` for a persistent one ahead of an Agent Engine

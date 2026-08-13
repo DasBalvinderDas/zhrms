@@ -99,15 +99,29 @@ async def main() -> None:
 
   prompt = "Set up the demo employees in the Zoho Creator HR app, as instructed."
 
+  saw_any_output = False
   try:
     message = types.Content(role="user", parts=[types.Part(text=prompt)])
     async for event in runner.run_async(
         user_id=user_id, session_id=session_id, new_message=message
     ):
-      if event.is_final_response() and event.content and event.content.parts:
-        text = "".join(p.text or "" for p in event.content.parts)
-        if text:
-          print(text.strip())
+      if not event.content or not event.content.parts:
+        continue
+      for part in event.content.parts:
+        if getattr(part, "function_call", None):
+          fc = part.function_call
+          print(f"[tool call] {fc.name}({str(fc.args)[:200]})")
+          saw_any_output = True
+        elif getattr(part, "function_response", None):
+          fr = part.function_response
+          print(f"[tool result] {fr.name} -> {str(fr.response)[:300]}")
+          saw_any_output = True
+        elif getattr(part, "text", None):
+          print(part.text.strip())
+          saw_any_output = True
+    if not saw_any_output:
+      print("(agent produced no output at all -- check ZOHO_MCP_TOOL_FILTER, "
+            "the model name, and Vertex AI access)")
   finally:
     await runner.close()
 

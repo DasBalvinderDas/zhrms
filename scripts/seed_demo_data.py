@@ -1,24 +1,26 @@
-"""One-time admin script: seeds demo employees into the connected Zoho
-Creator HR app, so the demo use cases in scripts/run_demo.py have real data
-to query.
+"""One-time admin script: seeds demo employees (with compensation) and one
+sample leave request into the connected Zoho Creator HR app, so the demo
+use cases in scripts/run_demo.py have real, complete data to query.
 
     python scripts/seed_demo_data.py
 
 Uses a separate, wider set of Zoho MCP tools than the conversational agent
-(zoho_hr_agent.agent.root_agent) -- addRecords, which writes data, which the
-day-to-day HR assistant intentionally does not have access to.
+(zoho_hr_agent.agent.root_agent) -- addRecords/updateRecords, which write
+data, which the day-to-day HR assistant intentionally does not have access
+to.
 
 Driven by an LLM rather than hardcoded field names, because the connected
 app's exact forms/reports/fields are account-specific and only discoverable
 at runtime via getApplications/getForms/getReports/get*Metadata. If a form
 has a field that can't reasonably be filled via API (e.g. a mandatory photo
-upload), the agent is instructed to report that plainly rather than
-fabricate a value -- if you hit that, make the field optional in the
-Creator app builder (Edit this application -> the form -> the field ->
-uncheck Mandatory) and re-run.
+upload, or a mandatory picklist with no real choices configured), the agent
+is instructed to report that plainly rather than fabricate a value -- if
+you hit that, fix it in the Creator app builder (Edit this application ->
+the form -> the field -> uncheck Mandatory, or add real choices) and
+re-run.
 
 Safe to re-run: the agent is instructed to check for existing records first
-and skip anything already there.
+and update/skip rather than duplicate.
 """
 
 from __future__ import annotations
@@ -45,51 +47,77 @@ SEED_TOOL_FILTER = [
     "ZohoCreator_getReportMetadata",
     "ZohoCreator_getCreatorRecords",
     "ZohoCreator_addRecords",
+    "ZohoCreator_updateRecords",
 ]
 
 SEED_INSTRUCTION = """\
-You are a one-time setup assistant seeding demo employees into a Zoho
-Creator HR application.
+You are a one-time setup assistant seeding complete demo data into a Zoho
+Creator HR application: employees (with compensation) and one sample leave
+request. This may run against an app that already has some of these
+employees from a previous run -- update/backfill them rather than skipping
+entirely if data is missing, and never create duplicates.
+
+=== Employees ===
 
 1. Call getApplications to find the HR application (look for one named
    something like "Human Resource Management" -- don't assume the exact
    name, use whatever getApplications actually returns).
 2. Call getForms and getReports for that app to find the employee form (an
    "Add Employee"-style form) and a report that lists existing employee
-   records (to check for duplicates before creating).
+   records.
 3. Call getFormMetadata on the employee form to see its actual fields
    before creating anything. If any mandatory field can't reasonably be
-   filled via API (e.g. a required photo/file upload with no file
-   available), do NOT invent a fake value -- report exactly which field is
-   blocking creation and stop, don't create partial/invalid records.
-4. Otherwise, using getCreatorRecords on the employee report to check for
-   existing matches by email first, ensure these three employees exist
-   (addRecords if missing), filling only the fields the form actually has,
-   with today's date for any required "date of joining"-style field and
-   sensible values for anything else mandatory (including a CTC/
-   compensation value if that field is mandatory -- pick something
-   reasonable and say what you chose):
+   filled via API (e.g. a required photo/file upload, or a mandatory
+   picklist whose only configured choice is an empty placeholder), do NOT
+   invent a fake value -- report exactly which field is blocking creation
+   and stop, don't create partial/invalid records.
+4. For each of these three people, first check the employee report for an
+   existing match by email:
    - Asha Verma, asha.verma@demo-coe-org.example, Engineering, Software Engineer
    - Rahul Nair, rahul.nair@demo-coe-org.example, Engineering, Engineering Manager
    - Priya Shah, priya.shah@demo-coe-org.example, Human Resources, HR Executive
 
-   Lookup fields (Location, Department, Designation) reference records in
-   other forms. If a plain display-name string or an {"ID": ...}-style
-   object gets rejected with an "Invalid column value" error, try passing
-   the referenced record's ID as a bare string value with no object
-   wrapper at all (e.g. "Location": "<record id>") -- Zoho's error message
-   for a rejected object echoes the whole object back as "the value",
-   which means it wants a scalar there, not an object. If that still
-   fails, try the lookup form's display/unique field name as a bare
-   string instead of its ID. Only if every reasonable format is exhausted
-   should you report the field as blocking creation.
-5. If a leave-request form/report exists, note its name in your summary but
-   don't create sample leave requests -- leave that for interactive use.
+   If missing, addRecords using every field the form has, with today's
+   date for any required "date of joining"-style field and sensible values
+   for anything else mandatory.
 
-Work through all of this one item at a time. After each creation attempt,
-state plainly whether it succeeded, already existed, or failed (with the
-error). Finish with a short summary table of created vs. already-existed
-vs. failed.
+   Also set a compensation/CTC value on every one of these three
+   employees, whether or not the field is mandatory -- pick a distinct,
+   reasonable annual figure per person (e.g. different values for each, in
+   whatever currency/unit the field expects) and say what you chose. If
+   the employee already exists (from a prior run) but this field is empty,
+   updateRecords to backfill it rather than leaving it blank -- the record
+   ID for updateRecords comes from the getCreatorRecords lookup above. If
+   the CTC field turns out to be a Lookup (referencing a salary band/
+   template form, the same pattern as Department/Designation/Location),
+   resolve or create a band the same way you would for those.
+
+   Lookup fields (Location, Department, Designation, and possibly
+   compensation) reference records in other forms. If a plain display-name
+   string or an {"ID": ...}-style object gets rejected with an "Invalid
+   column value" error, try passing the referenced record's ID as a bare
+   string value with no object wrapper at all (e.g. "Location": "<record
+   id>") -- Zoho's error message for a rejected object echoes the whole
+   object back as "the value", which means it wants a scalar there, not an
+   object. If that still fails, try the lookup form's display/unique field
+   name as a bare string instead of its ID. Only if every reasonable
+   format is exhausted should you report the field as blocking creation.
+
+=== Leave ===
+
+5. Find the leave-request form/report via getForms/getReports (note its
+   name either way). If one exists, check whether Asha Verma already has
+   any leave record there; if not, call getFormMetadata on the leave form
+   and submit exactly one sample leave request for her (a short, plausible
+   date range a few weeks out, with whatever reason/leave-type field the
+   form has set to something reasonable) via addRecords. Don't create
+   leave requests for the other two employees -- one sample record across
+   the whole app is enough to demonstrate the use case.
+
+Work through all of this one item at a time. After each attempt, state
+plainly whether it succeeded, already existed, was backfilled, or failed
+(with the error). Finish with a short summary table covering all three
+employees' creation/CTC status and the leave request status.
 """
 
 

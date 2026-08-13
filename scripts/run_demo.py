@@ -27,7 +27,8 @@ from zoho_hr_agent.agent import root_agent
 
 DEFAULT_PROMPTS = [
     # 1. Employee lookup
-    "Look up the employee Asha Verma and give me a short profile.",
+    "Look up the employee Asha Verma and give me her full profile, "
+    "including department, designation, and location.",
     # 2. Workforce insights
     "Give me a headcount breakdown by department for the whole org.",
     # 3. Leave

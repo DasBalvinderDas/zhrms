@@ -72,6 +72,17 @@ Creator HR application.
    - Asha Verma, asha.verma@demo-coe-org.example, Engineering, Software Engineer
    - Rahul Nair, rahul.nair@demo-coe-org.example, Engineering, Engineering Manager
    - Priya Shah, priya.shah@demo-coe-org.example, Human Resources, HR Executive
+
+   Lookup fields (Location, Department, Designation) reference records in
+   other forms. If a plain display-name string or an {"ID": ...}-style
+   object gets rejected with an "Invalid column value" error, try passing
+   the referenced record's ID as a bare string value with no object
+   wrapper at all (e.g. "Location": "<record id>") -- Zoho's error message
+   for a rejected object echoes the whole object back as "the value",
+   which means it wants a scalar there, not an object. If that still
+   fails, try the lookup form's display/unique field name as a bare
+   string instead of its ID. Only if every reasonable format is exhausted
+   should you report the field as blocking creation.
 5. If a leave-request form/report exists, note its name in your summary but
    don't create sample leave requests -- leave that for interactive use.
 

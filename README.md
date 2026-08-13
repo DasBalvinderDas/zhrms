@@ -154,22 +154,29 @@ This connects to your Zoho MCP server and prints every tool it exposes —
 confirms the URL/auth are correct, and shows you the real tool names before
 the agent ever runs (they depend on which tool group you enabled in Step 5).
 
-### Step 7 — Seed demo data (only if there's no data yet)
+### Step 7 — Seed demo data
 
-If the Creator app has no employees yet, the demo use cases will just
-report "no data." Seed 3 demo employees via Zoho's own MCP tools:
+Seed 3 demo employees (with compensation) and one sample leave request via
+Zoho's own MCP tools:
 
 ```bash
 python scripts/seed_demo_data.py
 ```
 
-This uses a separate, wider set of Zoho MCP tools (adds `addRecords`, which
-writes data) than the conversational agent, and is safe to re-run — it
-checks for existing records first. One known limitation: if the employee
-form has a field that can't reasonably be filled via API (e.g. a mandatory
-photo upload), it'll say so rather than fabricate a value. Fix that in the
-Creator app builder (**Edit this application** → the form → the field →
-uncheck **Mandatory**) and re-run.
+This resets and reseeds: it deletes any existing records matching the
+specific demo values first, then recreates them fresh, rather than
+checking-and-skipping — so it always leaves the same known-good state
+whether the app currently has none, some, or all of this data already. It
+only ever touches those specific demo records, nothing else in the app. It
+uses a separate, wider set of Zoho MCP tools (`addRecords`/`deleteRecords`,
+which write/delete data) than the conversational agent.
+
+One known limitation: if the employee form has a field that can't
+reasonably be filled via API (e.g. a mandatory photo upload, or a
+mandatory picklist with no real choices configured), it'll say so rather
+than fabricate a value. Fix that in the Creator app builder (**Edit this
+application** → the form → the field → uncheck **Mandatory**, or add real
+choices) and re-run.
 
 ### Step 8 — Run the demo
 
@@ -235,7 +242,7 @@ zoho_hr_agent/
   agent.py            # MCPToolset -> Zoho MCP, LlmAgent with HR instructions
 scripts/
   discover_tools.py   # connects and lists available Zoho MCP tools
-  seed_demo_data.py   # one-time: creates demo employees in the Creator app
+  seed_demo_data.py   # resets and reseeds demo employees/leave in the Creator app
   run_demo.py         # scripted run of the 4 use cases via InMemoryRunner
 .env.example           # required/optional environment variables
 ```

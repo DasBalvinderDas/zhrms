@@ -1,13 +1,23 @@
-"""One-time admin script: seeds demo employees (with compensation) and one
-sample leave request into the connected Zoho Creator HR app, so the demo
-use cases in scripts/run_demo.py have real, complete data to query.
+"""One-time admin script: wipes and recreates demo employees (with
+compensation) and one sample leave request in the connected Zoho Creator HR
+app, so the demo use cases in scripts/run_demo.py always have the same
+complete, known-good data to query -- regardless of whatever partial state
+(none, some, all) is already there.
 
     python scripts/seed_demo_data.py
 
+Deletes any existing records matching the specific demo values below (by
+email for employees, by name for the department/designation/location
+master records, by employee for the leave request) before recreating them,
+rather than checking-and-skipping. This is a demo/POC seeding script, not
+a production migration -- deterministic reset-and-reseed is simpler and
+more reliable here than incremental patching. It does NOT touch anything
+in the app that isn't one of these specific demo records.
+
 Uses a separate, wider set of Zoho MCP tools than the conversational agent
-(zoho_hr_agent.agent.root_agent) -- addRecords/updateRecords, which write
-data, which the day-to-day HR assistant intentionally does not have access
-to.
+(zoho_hr_agent.agent.root_agent) -- addRecords/deleteRecords, which write
+and delete data, which the day-to-day HR assistant intentionally does not
+have access to.
 
 Driven by an LLM rather than hardcoded field names, because the connected
 app's exact forms/reports/fields are account-specific and only discoverable
@@ -18,9 +28,6 @@ is instructed to report that plainly rather than fabricate a value -- if
 you hit that, fix it in the Creator app builder (Edit this application ->
 the form -> the field -> uncheck Mandatory, or add real choices) and
 re-run.
-
-Safe to re-run: the agent is instructed to check for existing records first
-and update/skip rather than duplicate.
 """
 
 from __future__ import annotations
@@ -47,50 +54,68 @@ SEED_TOOL_FILTER = [
     "ZohoCreator_getReportMetadata",
     "ZohoCreator_getCreatorRecords",
     "ZohoCreator_addRecords",
-    "ZohoCreator_updateRecords",
+    "ZohoCreator_deleteRecords",
 ]
 
 SEED_INSTRUCTION = """\
-You are a one-time setup assistant seeding complete demo data into a Zoho
-Creator HR application: employees (with compensation) and one sample leave
-request. This may run against an app that already has some of these
-employees from a previous run -- update/backfill them rather than skipping
-entirely if data is missing, and never create duplicates.
+You are a setup assistant that resets and reseeds demo data in a Zoho
+Creator HR application: three employees (with compensation) and one sample
+leave request. The app may currently have none, some, or all of this data
+from a previous run -- don't assume any particular starting state. Delete
+whatever demo records already exist first, then create everything fresh,
+so the end state is always the same regardless of the starting point. Only
+ever touch records matching the specific demo values below -- never delete
+or modify anything else in the app.
 
-=== Employees ===
+=== Discover ===
 
 1. Call getApplications to find the HR application (look for one named
    something like "Human Resource Management" -- don't assume the exact
    name, use whatever getApplications actually returns).
-2. Call getForms and getReports for that app to find the employee form (an
-   "Add Employee"-style form) and a report that lists existing employee
+2. Call getForms and getReports for that app to find: the employee form/
+   report, the department/designation/location forms/reports, and any
+   leave-request form/report.
+3. Call getFormMetadata on the employee form to see its actual fields. If
+   any mandatory field can't reasonably be filled via API (e.g. a required
+   photo/file upload, or a mandatory picklist whose only configured choice
+   is an empty placeholder), do NOT invent a fake value -- report exactly
+   which field is blocking creation and stop, don't create partial/invalid
    records.
-3. Call getFormMetadata on the employee form to see its actual fields
-   before creating anything. If any mandatory field can't reasonably be
-   filled via API (e.g. a required photo/file upload, or a mandatory
-   picklist whose only configured choice is an empty placeholder), do NOT
-   invent a fake value -- report exactly which field is blocking creation
-   and stop, don't create partial/invalid records.
-4. For each of these three people, first check the employee report for an
-   existing match by email:
+
+=== Delete existing demo data (in this order, to respect references) ===
+
+4. In the leave report, delete any existing leave request(s) for Asha
+   Verma (asha.verma@demo-coe-org.example) via deleteRecords with a
+   criteria matching her.
+5. In the employee report, delete any existing records matching these
+   three emails via deleteRecords:
+   asha.verma@demo-coe-org.example, rahul.nair@demo-coe-org.example,
+   priya.shah@demo-coe-org.example.
+6. In the department/designation/location reports, delete any existing
+   records matching these specific demo values via deleteRecords:
+   departments "Engineering" and "Human Resources"; designations
+   "Software Engineer", "Engineering Manager", "HR Executive"; locations
+   used for these employees (e.g. any you find named "Bangalore" or
+   "Remote").
+
+=== Recreate fresh ===
+
+7. Recreate the department/designation/location master records from step 6
+   via addRecords.
+8. Recreate these three employees via addRecords, using every field the
+   form has, with today's date for any required "date of joining"-style
+   field, and sensible values for anything else mandatory:
    - Asha Verma, asha.verma@demo-coe-org.example, Engineering, Software Engineer
    - Rahul Nair, rahul.nair@demo-coe-org.example, Engineering, Engineering Manager
    - Priya Shah, priya.shah@demo-coe-org.example, Human Resources, HR Executive
 
-   If missing, addRecords using every field the form has, with today's
-   date for any required "date of joining"-style field and sensible values
-   for anything else mandatory.
-
-   Also set a compensation/CTC value on every one of these three
-   employees, whether or not the field is mandatory -- pick a distinct,
-   reasonable annual figure per person (e.g. different values for each, in
-   whatever currency/unit the field expects) and say what you chose. If
-   the employee already exists (from a prior run) but this field is empty,
-   updateRecords to backfill it rather than leaving it blank -- the record
-   ID for updateRecords comes from the getCreatorRecords lookup above. If
-   the CTC field turns out to be a Lookup (referencing a salary band/
-   template form, the same pattern as Department/Designation/Location),
-   resolve or create a band the same way you would for those.
+   Set a compensation/CTC value on every one of these three employees,
+   whether or not the field is mandatory -- pick a distinct, reasonable
+   annual figure per person (in whatever currency/unit the field expects)
+   and say what you chose. If the CTC field turns out to be a Lookup
+   (referencing a salary band/template form, the same pattern as
+   Department/Designation/Location), resolve or create a band the same
+   way you would for those.
 
    Lookup fields (Location, Department, Designation, and possibly
    compensation) reference records in other forms. If a plain display-name
@@ -102,22 +127,17 @@ entirely if data is missing, and never create duplicates.
    object. If that still fails, try the lookup form's display/unique field
    name as a bare string instead of its ID. Only if every reasonable
    format is exhausted should you report the field as blocking creation.
+9. If a leave-request form/report exists, call getFormMetadata on it and
+   submit exactly one sample leave request for Asha Verma (a short,
+   plausible date range a few weeks out, with whatever reason/leave-type
+   field the form has set to something reasonable) via addRecords. Don't
+   create leave requests for the other two employees -- one sample record
+   is enough to demonstrate the use case.
 
-=== Leave ===
-
-5. Find the leave-request form/report via getForms/getReports (note its
-   name either way). If one exists, check whether Asha Verma already has
-   any leave record there; if not, call getFormMetadata on the leave form
-   and submit exactly one sample leave request for her (a short, plausible
-   date range a few weeks out, with whatever reason/leave-type field the
-   form has set to something reasonable) via addRecords. Don't create
-   leave requests for the other two employees -- one sample record across
-   the whole app is enough to demonstrate the use case.
-
-Work through all of this one item at a time. After each attempt, state
-plainly whether it succeeded, already existed, was backfilled, or failed
-(with the error). Finish with a short summary table covering all three
-employees' creation/CTC status and the leave request status.
+Work through all of this one item at a time. After each delete/create
+attempt, state plainly whether it succeeded, found nothing to delete, or
+failed (with the error). Finish with a short summary table covering all
+three employees' status and the leave request status.
 """
 
 
@@ -125,7 +145,7 @@ async def main() -> None:
   agent = Agent(
       name="zoho_seed_agent",
       model=os.environ.get("ADK_MODEL", "gemini-2.5-flash"),
-      description="One-time admin agent that seeds demo Zoho Creator HR data.",
+      description="Admin agent that resets and reseeds demo Zoho Creator HR data.",
       instruction=SEED_INSTRUCTION,
       tools=[build_zoho_toolset(tool_filter=SEED_TOOL_FILTER)],
   )
@@ -136,7 +156,7 @@ async def main() -> None:
       app_name="zoho_hr_seed", user_id=user_id, session_id=session_id
   )
 
-  prompt = "Set up the demo employees in the Zoho Creator HR app, as instructed."
+  prompt = "Reset and reseed the demo data in the Zoho Creator HR app, as instructed."
 
   saw_any_output = False
   try:

@@ -1,10 +1,10 @@
-# Zoho HR/Payroll Agent (ADK + Zoho MCP) — POC
+# Zoho HR Agent (ADK + Zoho MCP) — POC
 
 Small proof-of-concept showing a [Google ADK](https://google.github.io/adk-docs/)
-agent talking to HR data (in a Zoho Creator app) and Zoho Payroll through
-**Zoho's own MCP server** — no custom Zoho API glue code, no bespoke tool
-wrappers. ADK's `MCPToolset` connects straight to Zoho's hosted MCP endpoint
-and turns whatever tools Zoho exposes into agent-callable tools at runtime.
+agent talking to HR data in a Zoho Creator app through **Zoho's own MCP
+server** — no custom Zoho API glue code, no bespoke tool wrappers. ADK's
+`MCPToolset` connects straight to Zoho's hosted MCP endpoint and turns
+whatever tools Zoho exposes into agent-callable tools at runtime.
 
 ```
  ADK LlmAgent (Gemini via Vertex AI)
@@ -12,16 +12,16 @@ and turns whatever tools Zoho exposes into agent-callable tools at runtime.
         ▼
  Zoho MCP server  (https://<your-server>.zohomcp.in/mcp/...)
         │
-        ├── Zoho Creator  (HR app: employee lookup, workforce insights, leave)
-        └── Zoho Payroll  (pay runs, employee pay details)
+        └── Zoho Creator  (HR app: employees, leave, compensation)
 ```
 
-> This started out targeting **Zoho People** for the HR side, but the
-> connected Zoho account turned out to have no real Zoho People
-> organization — only a custom-built Zoho Creator app ("Human Resource
-> Management"). If your account genuinely has Zoho People set up, its tools
-> work the same shape as Creator's here, just with different (HR-specific,
-> not generic form/report) tool names — see the note in `zoho_hr_agent/agent.py`.
+> This started out targeting **Zoho People** (and briefly **Zoho Payroll**)
+> for HR/payroll data, but the connected Zoho account turned out to have no
+> real organization set up in either product — only a custom-built Zoho
+> Creator app ("Human Resource Management"). Everything now runs off that
+> one app instead. If your account genuinely has Zoho People/Payroll set
+> up, their tools work the same shape as Creator's here, just with
+> different, HR-specific tool names — see the note in `zoho_hr_agent/agent.py`.
 
 **Use cases demoed:**
 
@@ -33,15 +33,17 @@ and turns whatever tools Zoho exposes into agent-callable tools at runtime.
    insights tool exists for a custom Creator app).
 3. **Leave** — look up leave records/history, and submit a new leave
    request if the app has a leave form → Zoho Creator record tools.
-4. **Payroll** — pull up a pay run and an employee's pay details within it
-   (gross pay, deductions, net pay) → Zoho Payroll pay-run tools.
+4. **Compensation** — report an employee's CTC from their employee record.
+   (There's no separate pay-run/payslip system here — just whatever
+   compensation field the Creator app's employee form has.)
 
 The agent's instructions (`zoho_hr_agent/agent.py`) constrain it to these
 four areas and tell it to only report data actually returned by the MCP
-tools — never to fabricate employee or pay data. Because a Creator app's
-forms/reports/fields are specific to whichever app is connected, the agent
-is instructed to *discover* them at runtime (`getApplications` →
-`getForms`/`getReports` → `get*Metadata`) rather than assume fixed names.
+tools — never to fabricate employee, leave, or compensation data. Because a
+Creator app's forms/reports/fields are specific to whichever app is
+connected, the agent is instructed to *discover* them at runtime
+(`getApplications` → `getForms`/`getReports` → `get*Metadata`) rather than
+assume fixed names.
 
 ---
 
@@ -110,20 +112,11 @@ If you don't already have one:
 
 1. Sign in to the Zoho MCP console for your data center (e.g.
    `mcp.zoho.in` or `mcp.zoho.com`) and create a server.
-2. **Tools** → `Add Tools` → select:
-   - **Zoho Creator**: pick the specific app holding your HR data (e.g. a
-     "Human Resource Management" app), and enable its generic tool group
-     (forms/reports/records — `getApplications`, `getForms`, `getReports`,
-     `get*Metadata`, `getCreatorRecords`, `addRecords`, etc.).
-   - **Zoho Payroll**: enable the **Payruns**, **Departments**,
-     **Designations**, **Work Locations**, **Employees**, and
-     **Organizations** tool groups. (If you have real Zoho People instead
-     of a Creator app, enable its **Leave**, **Forms**, and **Employees**
-     groups similarly.)
-   Zoho MCP consoles have a per-server tool-count cap (this repo was built
-   against a 300-tool cap) — the groups above land around 150 tools total,
-   comfortably within budget; skip anything else (Benefits, Performance,
-   TimeTracker, LMS, etc.) that isn't needed for the 4 use cases here.
+2. **Tools** → `Add Tools` → select **Zoho Creator** → the specific app
+   holding your HR data (e.g. a "Human Resource Management" app) — enable
+   its generic tool group (forms/reports/records — `getApplications`,
+   `getForms`, `getReports`, `get*Metadata`, `getCreatorRecords`,
+   `addRecords`, etc.). That's it; nothing else is required for this POC.
 3. **Connection** → switch the authorization mode to **"Authorize via
    Connection"** (it starts on "Authorize on Demand"). This matters: "on
    demand" means every MCP client has to complete its own interactive OAuth
@@ -159,30 +152,24 @@ python scripts/discover_tools.py
 
 This connects to your Zoho MCP server and prints every tool it exposes —
 confirms the URL/auth are correct, and shows you the real tool names before
-the agent ever runs (they depend on which tool groups you enabled in Step 5).
+the agent ever runs (they depend on which tool group you enabled in Step 5).
 
 ### Step 7 — Seed demo data (only if there's no data yet)
 
-If this is a fresh HR app / Payroll org with no employees yet, the demo use
-cases will just report "no data." Seed a small demo dataset — 3 employees
-into the Zoho Creator HR app, plus matching departments, designations, a
-work location, and employees in Zoho Payroll — via Zoho's own MCP tools:
+If the Creator app has no employees yet, the demo use cases will just
+report "no data." Seed 3 demo employees via Zoho's own MCP tools:
 
 ```bash
 python scripts/seed_demo_data.py
 ```
 
-This uses a separate, wider set of Zoho MCP tools (Creator's `addRecords`,
-Payroll's dedicated `create_*` tools) than the conversational agent, and is
-safe to re-run — it checks for existing records first. See the script's
-docstring for exactly what it creates, and its limitations:
-- If the Creator employee form has a field that can't reasonably be filled
-  via API (e.g. a mandatory photo upload), it'll say so rather than fabricate
-  a value, and skip creating Creator-side employees.
-- It can't assign employee salaries or create a pay run (no MCP tool
-  currently sets a salary, only fetch/list tools exist for that), so a pay
-  run with real numbers in it still needs to be set up once manually in the
-  Payroll web UI.
+This uses a separate, wider set of Zoho MCP tools (adds `addRecords`, which
+writes data) than the conversational agent, and is safe to re-run — it
+checks for existing records first. One known limitation: if the employee
+form has a field that can't reasonably be filled via API (e.g. a mandatory
+photo upload), it'll say so rather than fabricate a value. Fix that in the
+Creator app builder (**Edit this application** → the form → the field →
+uncheck **Mandatory**) and re-run.
 
 ### Step 8 — Run the demo
 
@@ -214,18 +201,11 @@ adk run zoho_hr_agent
     without extra port-forwarding gymnastics. "Authorize via Connection"
     avoids needing that login at all, which is also the right shape for a
     headless deployment (e.g. Agent Engine) later.
-- **Zoho People tools fail with "No organization account exists for this
-  user"** — the Zoho account behind the MCP server has no real Zoho People
-  organization set up (it may still have a Zoho Creator app, or nothing HR
-  related at all). Either complete Zoho People's own signup at
-  `people.zoho.in` for that account, or switch to a Zoho Creator HR app as
-  this project now does (Step 5).
-- **Zoho Payroll tools fail with "user not associated with the provided
-  CompanyID/organization ID"** — the agent guessed an organization ID.
-  Enable Payroll's **Organizations** tool group (`list_organizations`,
-  `get_organization`) so it can look up the real ID instead; the agent's
-  instructions already tell it to call `list_organizations` first once that
-  tool exists.
+- **A form's `addRecords` call fails because of a mandatory field that
+  can't be filled via API** (e.g. a photo upload) — fix it in the Creator
+  app builder rather than working around it: **Edit this application** →
+  the form → the field → uncheck **Mandatory** (or remove the field if you
+  don't need it).
 - **`discover_tools.py` hangs or errors about the transport/session** — the
   URL may need the legacy SSE transport instead of Streamable HTTP. Set
   `ZOHO_MCP_TRANSPORT=sse` in `.env` and re-run.
@@ -238,7 +218,7 @@ adk run zoho_hr_agent
   project/region (older model IDs get superseded over time). Set
   `ADK_MODEL=gemini-2.5-flash` in `.env`, or check the Model Garden in the
   Cloud Console for a currently available model ID in your region.
-- **`discover_tools.py` connects but returns 0 tools** — no tool groups are
+- **`discover_tools.py` connects but returns 0 tools** — no tool group is
   enabled on the Zoho MCP server yet (Step 5.2), or `ZOHO_MCP_TOOL_FILTER` in
   `.env` is filtering everything out (leave it blank to see everything).
 - **Want AI Studio instead of Vertex AI?** — set
@@ -252,10 +232,10 @@ adk run zoho_hr_agent
 
 ```
 zoho_hr_agent/
-  agent.py            # MCPToolset -> Zoho MCP, LlmAgent with HR/payroll instructions
+  agent.py            # MCPToolset -> Zoho MCP, LlmAgent with HR instructions
 scripts/
   discover_tools.py   # connects and lists available Zoho MCP tools
-  seed_demo_data.py   # one-time: creates demo employees in Creator + Payroll
+  seed_demo_data.py   # one-time: creates demo employees in the Creator app
   run_demo.py         # scripted run of the 4 use cases via InMemoryRunner
 .env.example           # required/optional environment variables
 ```
@@ -269,14 +249,9 @@ scripts/
   from `discover_tools.py`.
 - Zoho Creator's tools are generic (forms/reports/records), not HR-specific
   -- there's no built-in "employee insights" or "leave balance" concept like
-  Zoho People has. The agent aggregates/interprets from raw records instead,
-  which is less precise than a purpose-built HR API but works for a demo.
-- Zoho Payroll has dedicated tools for departments, designations, work
-  locations, and employees, but nothing to set an employee's salary (only
-  `fetch*`/list tools exist for salary templates/components) as of this
-  writing -- so `seed_demo_data.py` can create Payroll employees, but a pay
-  run with real numbers in it still needs salary assigned manually once in
-  the Payroll web UI.
+  Zoho People has, and no pay-run/payslip system like Zoho Payroll has. The
+  agent aggregates/interprets from raw records instead, which is less
+  precise than a purpose-built HR API but works for a demo.
 - Not covered yet, natural next steps for a wider POC: write-actions
   confirmation (e.g. "are you sure?" before submitting leave), and swapping
   `InMemorySessionService` for a persistent one ahead of an Agent Engine

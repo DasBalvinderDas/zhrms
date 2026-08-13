@@ -1,22 +1,22 @@
-"""ADK agent that talks to a Zoho Creator HR app and Zoho Payroll through
-Zoho's MCP server.
+"""ADK agent that talks to a Zoho Creator HR app through Zoho's MCP server.
 
 Setup lives in the Zoho MCP console, not in this file: create a server
-there, add the "Zoho Creator" and "Zoho Payroll" tool groups, switch the
+there, add the "Zoho Creator" tool group for the relevant app, switch the
 connection to "Authorize via Connection" (see .env.example), and copy the
 generated MCP URL into ZOHO_MCP_URL. This module just wires an ADK LlmAgent
 to that URL as an MCPToolset -- the concrete tool names and schemas come
 from Zoho at connection time via MCP's tools/list call.
 
-Employee, workforce, and leave data comes from a custom Zoho Creator app
-(here: "Human Resource Management") rather than Zoho People -- this project
-started against Zoho People but switched once it turned out the connected
-Zoho account had no real Zoho People organization, only this Creator app.
-Zoho Creator's MCP tools are generic (forms/reports/records, not
-HR-specific), so the agent has to discover the app's actual form/report
-names and fields at runtime via getApplications/getForms/getReports/
-get*Metadata -- nothing about field names is hard-coded here, since they're
-specific to whichever Creator app is connected.
+All HR data -- employees, workforce insights, leave, and compensation --
+comes from a single custom Zoho Creator app (here: "Human Resource
+Management") rather than separate Zoho People / Zoho Payroll products. This
+project started against those, but switched once it turned out the
+connected Zoho account had no real organization set up in either product,
+only this Creator app. Zoho Creator's MCP tools are generic (forms/reports/
+records, not HR-specific), so the agent has to discover the app's actual
+form/report names and fields at runtime via getApplications/getForms/
+getReports/get*Metadata -- nothing about field names is hard-coded here,
+since they're specific to whichever Creator app is connected.
 """
 
 from __future__ import annotations
@@ -34,12 +34,9 @@ from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 load_dotenv()
 
 INSTRUCTION = """\
-You are an HR & Payroll assistant for the company. Employee, workforce, and
-leave data lives in a Zoho Creator app; payroll data lives in Zoho Payroll.
-Only answer using data returned by MCP tools -- never invent employee,
-leave, or pay data.
-
-=== Zoho Creator (employees, workforce insights, leave) ===
+You are an HR assistant for the company, backed by a Zoho Creator app that
+holds all employee, leave, and compensation data. Only answer using data
+returned by MCP tools -- never invent employee, leave, or compensation data.
 
 The HR data lives in a Zoho Creator application (look for one named
 something like "Human Resource Management" via getApplications -- do not
@@ -51,6 +48,8 @@ writing to any form/report for the first time in a session:
    to this app -- discover them, don't guess.
 3. getFormMetadata / getReportMetadata to learn the actual field names
    before reading or writing records.
+
+You support four kinds of requests:
 
 1. Employee lookup: find the employee report via getReports, then use
    getCreatorRecords with a criteria filter matching the name/ID/department
@@ -74,15 +73,14 @@ writing to any form/report for the first time in a session:
      invent a leave type or employee reference the form doesn't actually
      have as an option.
 
-=== Zoho Payroll (pay runs) ===
-
-4. Payroll: report on pay runs. If you don't already have the organization
-   ID this session, call list_organizations first and use its result --
-   never guess an organization ID. Then use list_payruns to find a pay run
-   (e.g. the latest, or for a given period), get_payrun for its summary,
-   and list_payrun_employees / get_payrun_employee for an individual
-   employee's gross pay, deductions, and net pay within that run. Always
-   present amounts with their currency and the pay period they belong to.
+4. Compensation: report an employee's CTC/compensation from their employee
+   record (fetched the same way as employee lookup above). Present
+   whatever value and format the field actually contains -- it may be a
+   plain number, a currency-formatted string, or a reference to a salary
+   band/template, so check getFormMetadata/getReportMetadata for the
+   field's real type rather than assuming a raw number. There is no
+   separate pay-run/payslip system in this Creator app -- don't imply one
+   exists.
 
 If a request needs a tool or data that isn't available, say so plainly
 rather than fabricating an answer. Keep responses concise and factual.
@@ -125,7 +123,7 @@ def build_zoho_toolset(tool_filter=None) -> MCPToolset:
 root_agent = Agent(
     name="zoho_hr_payroll_agent",
     model=os.environ.get("ADK_MODEL", "gemini-2.5-flash"),
-    description="HR & payroll assistant backed by a Zoho Creator HR app and Zoho Payroll via MCP.",
+    description="HR assistant backed by a Zoho Creator HR app via MCP.",
     instruction=INSTRUCTION,
     tools=[build_zoho_toolset()],
 )

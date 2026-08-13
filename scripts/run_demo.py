@@ -4,7 +4,7 @@
     python scripts/run_demo.py "What leave types do we have configured?"
 
 With no arguments it runs one prompt for each use case (employee lookup,
-workforce insights, leave, payroll) in a single session. Pass your own
+workforce insights, leave, compensation) in a single session. Pass your own
 prompt(s) as CLI args to try something else instead.
 
 Run scripts/seed_demo_data.py first if the organization has no employees
@@ -33,9 +33,8 @@ DEFAULT_PROMPTS = [
     # 3. Leave
     "Is there a leave tracker set up? If so, show any leave requests or "
     "records for Asha Verma.",
-    # 4. Payroll
-    "Show me the most recent pay run and the pay details for its employees "
-    "-- gross pay, deductions, and net pay.",
+    # 4. Compensation
+    "What's Asha Verma's CTC?",
 ]
 
 

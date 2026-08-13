@@ -28,6 +28,20 @@ is instructed to report that plainly rather than fabricate a value -- if
 you hit that, fix it in the Creator app builder (Edit this application ->
 the form -> the field -> uncheck Mandatory, or add real choices) and
 re-run.
+
+KNOWN LIMITATION -- this script does NOT set Monthly/Annual pay amounts on
+the "Salary Structure" record's "Salary Split Up" subform, even though it
+tries. Verified via scripts/call_tool.py against a live record: addRecords/
+updateRecordByID all report success, but every non-Lookup field in that
+subform (Monthly, Annual, Formula, Is_Deduction -- currency/text/decision
+types) is silently dropped on every write; only the Lookup field
+(Pay_Component) ever persists. Confirmed across three payload variants
+(numbers, decimal strings, all fields explicit) with identical results --
+this is a limitation of the MCP tool's subform write path, not a payload
+format issue. Enter Monthly/Annual for each employee's Salary Structure
+record manually through the Creator app's own UI instead; that write path
+doesn't hit the same bug. Once entered, no code changes are needed -- the
+agent already knows to read from that subform.
 """
 
 from __future__ import annotations
@@ -109,13 +123,15 @@ or modify anything else in the app.
    - Rahul Nair, rahul.nair@demo-coe-org.example, Engineering, Engineering Manager
    - Priya Shah, priya.shah@demo-coe-org.example, Human Resources, HR Executive
 
-   Set a compensation/CTC value on every one of these three employees,
-   whether or not the field is mandatory -- pick a distinct, reasonable
-   annual figure per person (in whatever currency/unit the field expects)
-   and say what you chose. If the CTC field turns out to be a Lookup
-   (referencing a salary band/template form, the same pattern as
-   Department/Designation/Location), resolve or create a band the same
-   way you would for those.
+   If the employee form (or a linked salary/compensation report it points
+   to) has a CTC/compensation field, ensure a record for it exists and is
+   linked to the employee (e.g. a "Salary Structure" record referencing a
+   pay component), but don't spend more than one attempt trying to set the
+   actual Monthly/Annual pay amounts within a subform -- writing those
+   amounts via this MCP tool is a known-broken path (see this file's
+   module docstring for the confirmed root cause); note in your summary
+   that amounts need to be entered manually in the Creator app UI instead
+   of retrying formats.
 
    Lookup fields (Location, Department, Designation, and possibly
    compensation) reference records in other forms. If a plain display-name

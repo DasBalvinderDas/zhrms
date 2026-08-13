@@ -259,6 +259,15 @@ scripts/
   Zoho People has, and no pay-run/payslip system like Zoho Payroll has. The
   agent aggregates/interprets from raw records instead, which is less
   precise than a purpose-built HR API but works for a demo.
+- **Known limitation**: non-Lookup fields inside a Zoho Creator subform
+  (e.g. the Monthly/Annual pay amounts in this app's "Salary Structure" ->
+  "Salary Split Up" subform) can't be written through this MCP server's
+  `addRecords`/`updateRecordByID` tools -- confirmed via `scripts/call_tool.py`
+  against a live record: the call reports success, but only the subform's
+  Lookup field persists; currency/text/decision fields are silently
+  dropped, across multiple payload formats. Enter those values through the
+  Creator app's own UI instead; reads work fine once the data's there. See
+  `scripts/seed_demo_data.py`'s docstring for the full investigation.
 - Not covered yet, natural next steps for a wider POC: write-actions
   confirmation (e.g. "are you sure?" before submitting leave), and swapping
   `InMemorySessionService` for a persistent one ahead of an Agent Engine

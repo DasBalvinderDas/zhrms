@@ -55,10 +55,17 @@ async def main() -> None:
       async for event in runner.run_async(
           user_id=user_id, session_id=session_id, new_message=message
       ):
-        if event.is_final_response() and event.content and event.content.parts:
-          text = "".join(p.text or "" for p in event.content.parts)
-          if text:
-            print(text.strip())
+        if not event.content or not event.content.parts:
+          continue
+        for part in event.content.parts:
+          if getattr(part, "function_call", None):
+            fc = part.function_call
+            print(f"  [tool call] {fc.name}({str(fc.args)[:200]})")
+          elif getattr(part, "function_response", None):
+            fr = part.function_response
+            print(f"  [tool result] {fr.name} -> {str(fr.response)[:600]}")
+          elif getattr(part, "text", None):
+            print(part.text.strip())
   finally:
     await runner.close()
 

@@ -40,6 +40,12 @@ whatever tools Zoho exposes into agent-callable tools at runtime.
    based on leave frequency/recency (the only workload proxy this app has,
    no ticketing/time-tracking data is used). Explicitly framed as a data
    pattern for HR to follow up on, never as a clinical/medical claim.
+6. **Attrition / resignation lookup** — who's resigned, their last working
+   day, and stated reason → Zoho Creator record tools against the app's
+   resignation report.
+7. **Company announcements** — list/summarize recent company-wide
+   announcements → Zoho Creator record tools against the app's
+   announcement report.
 
 The agent's instructions (`zoho_hr_agent/agent.py`) constrain it to these
 five areas and tell it to only report data actually returned by the MCP
@@ -160,11 +166,13 @@ the agent ever runs (they depend on which tool group you enabled in Step 5).
 
 ### Step 7 — Seed demo data
 
-Seed 3 fully-detailed demo employees (every profile field the form has,
-not just the mandatory ones, plus compensation linkage) and a deliberately
-varied leave history per employee — one with frequent/recent leave, one
-with a single leave months ago, one with none at all, so there's a real
-pattern for burnout-risk triage to reason over — via Zoho's own MCP tools:
+Seed 7 fully-detailed demo employees (every profile field the form has,
+not just the mandatory ones, plus compensation linkage), a full September
+2026 leave calendar with a deliberately varied pattern across the team —
+some employees with frequent/recent leave, some light, some none at all,
+one too new to read "no leave" as a signal — one resignation record, and
+three company announcements, so there's real data for all seven use cases
+above to reason over, via Zoho's own MCP tools:
 
 ```bash
 python scripts/seed_demo_data.py

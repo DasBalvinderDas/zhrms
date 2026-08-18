@@ -4,8 +4,9 @@
     python scripts/run_demo.py "What leave types do we have configured?"
 
 With no arguments it runs one prompt for each use case (employee lookup,
-workforce insights, leave, compensation, burnout-risk triage) in a single
-session. Pass your own prompt(s) as CLI args to try something else instead.
+workforce insights, leave, compensation, burnout-risk triage, attrition/
+resignation, company announcements) in a single session. Pass your own
+prompt(s) as CLI args to try something else instead.
 
 Run scripts/seed_demo_data.py first if the organization has no employees
 yet -- otherwise these will mostly report "no data found."
@@ -39,6 +40,10 @@ DEFAULT_PROMPTS = [
     # 5. Burnout-risk triage
     "Based on leave patterns, is there anyone on the team who might be "
     "worth a check-in from HR right now?",
+    # 6. Attrition / resignation
+    "Has anyone resigned recently? Who, and what's their last working day?",
+    # 7. Company announcements
+    "What are the latest company announcements?",
 ]
 
 

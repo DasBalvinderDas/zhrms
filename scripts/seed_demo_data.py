@@ -36,9 +36,13 @@ Announcement forms were confirmed to exist in the app (visible in its nav:
 but their exact field names were NOT inspected ahead of time -- the script
 describes what each record should mean in plain terms and lets the agent
 map that onto whatever getFormMetadata actually returns, same as every
-other form here. The one field it does NOT fill is Photo (a file/image
-upload -- there's no file to send via this JSON-based API); it reports
-that plainly rather than fabricate one.
+other form here. Fields it does NOT fill are file/image uploads -- there's
+no file to send via this JSON-based API -- e.g. Photo on the employee
+form, and Resignation_Letter on the Apply_Resignation form (discovered
+live: that field is mandatory, so omitting it currently blocks the whole
+resignation record from being created at all, not just that one field;
+see KNOWN LIMITATION below). The script reports any such block plainly
+rather than fabricate a file value.
 
 KNOWN LIMITATION -- this script does NOT set Monthly/Annual pay amounts on
 the "Salary Structure" record's "Salary Split Up" subform, even though it
@@ -57,6 +61,16 @@ lookup field (linking to their Salary Structure record) IS set by this
 script -- that part uses the same bare-record-ID Lookup pattern already
 proven for Department/Designation/Location, and is a separate, working
 piece from the subform amounts.
+
+KNOWN LIMITATION -- this script does NOT create the resignation record
+(step 15). The Apply_Resignation form's Resignation_Letter field is a
+mandatory file upload; there's no file to send via this API, and unlike
+Photo on the employee form (which was made optional in the Creator app
+builder early in this project), Resignation_Letter still blocks record
+creation entirely. Fix the same way: Creator app builder -> edit the
+Apply_Resignation form -> Resignation_Letter field -> uncheck Mandatory
+(or remove the field) -- then re-run this script and the resignation
+record will go through on the next attempt.
 """
 
 from __future__ import annotations
@@ -371,7 +385,11 @@ field, a date field) rather than assuming specific field names.
     date -> 01-Sep-2026; Last working day -> 30-Sep-2026; Reason ->
     "Pursuing higher studies"; Notice period / status -> whichever real
     choice most plausibly means "serving notice" / "in progress" (pick
-    the closest real choice and say what you picked).
+    the closest real choice and say what you picked). If the form has a
+    mandatory file-upload field (e.g. a resignation letter) that can't be
+    filled via this API and blocks the whole record from being created,
+    say so plainly in your summary and move on -- don't fabricate a file
+    value, and don't let it stop you from finishing steps 16 onward.
 
 16. Company announcements: in the announcement form/report (write via
     whatever form backs "Add Announcement"), create these three records.

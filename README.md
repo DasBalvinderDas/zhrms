@@ -186,12 +186,14 @@ only ever touches those specific demo records, nothing else in the app. It
 uses a separate, wider set of Zoho MCP tools (`addRecords`/`deleteRecords`,
 which write/delete data) than the conversational agent.
 
-One known limitation: if the employee form has a field that can't
-reasonably be filled via API (e.g. a mandatory photo upload, or a
-mandatory picklist with no real choices configured), it'll say so rather
-than fabricate a value. Fix that in the Creator app builder (**Edit this
+One known limitation: if a form has a field that can't reasonably be
+filled via API (e.g. a mandatory photo/file upload, or a mandatory
+picklist with no real choices configured), it'll say so rather than
+fabricate a value. Fix that in the Creator app builder (**Edit this
 application** → the form → the field → uncheck **Mandatory**, or add real
-choices) and re-run.
+choices) and re-run. As of this writing, the resignation record is
+skipped this way — `Apply_Resignation`'s `Resignation_Letter` field is a
+mandatory file upload with no file to send via this API.
 
 ### Step 8 — Run the demo
 
@@ -283,6 +285,12 @@ scripts/
   dropped, across multiple payload formats. Enter those values through the
   Creator app's own UI instead; reads work fine once the data's there. See
   `scripts/seed_demo_data.py`'s docstring for the full investigation.
+- **Known limitation**: the resignation record isn't seeded by default --
+  `Apply_Resignation`'s `Resignation_Letter` field is a mandatory file
+  upload with no file to send via this JSON-based API, which blocks the
+  whole record. Uncheck **Mandatory** on that field in the Creator app
+  builder (same fix as the employee `Photo` field earlier) and re-run
+  `seed_demo_data.py` to pick it up.
 - Not covered yet, natural next steps for a wider POC: write-actions
   confirmation (e.g. "are you sure?" before submitting leave), and swapping
   `InMemorySessionService` for a persistent one ahead of an Agent Engine

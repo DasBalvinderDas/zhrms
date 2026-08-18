@@ -137,18 +137,34 @@ pick the closest real choice and say what you picked instead.
 9. Recreate a compensation/salary-structure record per employee (e.g.
    "Asha Verma CTC", "Rahul Nair CTC", "Priya Shah CTC"), each referencing
    the "Base Salary" pay component. Note each new record's own ID -- you
-   need it in step 10. Don't spend more than one attempt trying to set the
-   subform's actual Monthly/Annual pay amounts -- that write path is
-   known-broken (see this file's module docstring for the confirmed root
-   cause); note in your summary that amounts need to be entered manually
-   in the Creator app UI instead of retrying formats.
-10. Create Rahul Nair and Priya Shah first (they have no manager in this
-    demo), then Asha Verma referencing Rahul's new employee record ID as
-    her manager -- see the Reporting_To note below. For EVERY field the
-    employee form actually has (per its real metadata), fill it using
-    these three consistent profiles. Where a field isn't listed below, use
-    a sensible, realistic value consistent with the rest of that person's
-    profile -- don't leave fillable fields blank.
+   need it in step 10.
+   IMPORTANT: the subform's Monthly field is mandatory at creation time,
+   so you MUST include a Monthly value (and Annual, if present) in the
+   create call or the whole record will be rejected -- use 100000 for
+   Asha, 150000 for Rahul, 75000 for Priya (Annual = Monthly * 12) as
+   plausible values. This is a known-broken write path (see this file's
+   module docstring): the amount will likely NOT actually persist even
+   though the create call succeeds and returns an ID. That's fine --
+   what matters here is that the record and its ID exist so it CAN be
+   linked to the employee in step 10. Don't spend extra attempts trying
+   to make the amount persist; one create call with a value included is
+   enough. Note in your summary that amounts need to be entered manually
+   in the Creator app UI afterward.
+10. Create Rahul Nair and Priya Shah first, then Asha Verma. For EVERY
+    field the employee form actually has (per its real metadata), fill it
+    using these three consistent profiles. Where a field isn't listed
+    below, use a sensible, realistic value consistent with the rest of
+    that person's profile -- don't leave fillable fields blank.
+
+    Reporting_To (Asha reports to Rahul, conceptually): check this
+    field's real type in the form metadata before touching it. If it's a
+    Lookup to the employee report, set it to Rahul's new employee record
+    ID (same bare-ID pattern as the other Lookup fields). If it's
+    actually a plain picklist (as discovered in one run, where its only
+    real choice was "-") rather than a true employee-reference field,
+    leave it unset for all three -- don't force an invalid picklist
+    value just to represent a reporting relationship the field isn't
+    actually configured to hold. Say which case you found.
 
     Asha Verma: Software Engineer, Engineering, Bangalore.
     - Personal_Email: asha.personal@example.com; Official_Email:
@@ -164,11 +180,8 @@ pick the closest real choice and say what you picked instead.
       "221B, Indiranagar", district_city "Bangalore", state_province
       "Karnataka", postal_code "560038", country "India"
     - Hobbies: "Reading, Hiking"
-    - Reporting_To: Rahul Nair's employee record ID (a Lookup field --
-      pass his bare record ID as a scalar string, same pattern as
-      Department/Designation/Location; see the Lookup-field note below)
-    - CTC: her Salary Structure record's own ID from step 9 (same
-      bare-ID Lookup pattern)
+    - CTC: her Salary Structure record's own ID from step 9 (bare-ID
+      Lookup pattern)
 
     Rahul Nair: Engineering Manager, Engineering, Remote.
     - Personal_Email: rahul.personal@example.com; Official_Email:
@@ -185,7 +198,6 @@ pick the closest real choice and say what you picked instead.
       "14, Anna Nagar 2nd Street", district_city "Chennai",
       state_province "Tamil Nadu", postal_code "600040", country "India"
     - Hobbies: "Cricket, Cooking"
-    - Reporting_To: leave unset (top of this small demo org)
     - CTC: his Salary Structure record's own ID from step 9
 
     Priya Shah: HR Executive, Human Resources, Bangalore.
@@ -203,11 +215,11 @@ pick the closest real choice and say what you picked instead.
       "45, Koramangala 5th Block", district_city "Bangalore",
       state_province "Karnataka", postal_code "560095", country "India"
     - Hobbies: "Painting, Yoga"
-    - Reporting_To: leave unset (no HR manager in this small demo org)
     - CTC: her Salary Structure record's own ID from step 9
 
-    Lookup fields (Location, Department, Designation, CTC, Reporting_To)
-    reference records in other forms/reports. If a plain display-name
+    Lookup fields (Location, Department, Designation, CTC, and
+    Reporting_To if it turns out to genuinely be a Lookup per the check
+    above) reference records in other forms/reports. If a plain display-name
     string or an {"ID": ...}-style object gets rejected with an "Invalid
     column value" error, pass the referenced record's ID as a bare string
     value with no object wrapper at all (e.g. "Location": "<record id>")

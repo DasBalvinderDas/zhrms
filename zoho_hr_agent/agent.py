@@ -7,16 +7,17 @@ generated MCP URL into ZOHO_MCP_URL. This module just wires an ADK LlmAgent
 to that URL as an MCPToolset -- the concrete tool names and schemas come
 from Zoho at connection time via MCP's tools/list call.
 
-All HR data -- employees, workforce insights, leave, and compensation --
-comes from a single custom Zoho Creator app (here: "Human Resource
-Management") rather than separate Zoho People / Zoho Payroll products. This
-project started against those, but switched once it turned out the
-connected Zoho account had no real organization set up in either product,
-only this Creator app. Zoho Creator's MCP tools are generic (forms/reports/
-records, not HR-specific), so the agent has to discover the app's actual
-form/report names and fields at runtime via getApplications/getForms/
-getReports/get*Metadata -- nothing about field names is hard-coded here,
-since they're specific to whichever Creator app is connected.
+All HR data -- employees, workforce insights, leave, compensation, and a
+leave-based burnout-risk triage signal for HR ops -- comes from a single
+custom Zoho Creator app (here: "Human Resource Management") rather than
+separate Zoho People / Zoho Payroll products. This project started against
+those, but switched once it turned out the connected Zoho account had no
+real organization set up in either product, only this Creator app. Zoho
+Creator's MCP tools are generic (forms/reports/records, not HR-specific),
+so the agent has to discover the app's actual form/report names and fields
+at runtime via getApplications/getForms/getReports/get*Metadata -- nothing
+about field names is hard-coded here, since they're specific to whichever
+Creator app is connected.
 """
 
 from __future__ import annotations
@@ -75,7 +76,7 @@ returns nothing but you have reason to expect a match, fall back to
 fetching the whole report with no criteria and finding the right record(s)
 yourself from the full list, rather than reporting "no data found."
 
-You support four kinds of requests:
+You support five kinds of requests:
 
 1. Employee lookup: find the employee report via getReports, then use
    getCreatorRecords with a criteria filter matching the name/ID/department
@@ -136,6 +137,35 @@ You support four kinds of requests:
    There is no separate pay-run/payslip system in this Creator app -- don't
    imply one exists.
 
+5. Burnout-risk triage (HR ops decision support, NOT a clinical or medical
+   assessment): flag employees whose leave pattern is worth a human HR
+   check-in. This app has no ticketing/workload-tracking system, so leave
+   frequency and recency (from the leave report) is the only proxy
+   available -- be explicit about that limitation whenever you present
+   results.
+   - Fetch leave records for all employees (getCreatorRecords on the leave
+     report, no criteria, field_config: "all" -- this dataset is small, so
+     fetching everything and aggregating yourself is fine) and group by
+     employee, resolving the employee Lookup field's display value per the
+     note above.
+   - For each employee, look at count and recency of leave requests over a
+     recent window (e.g. the last few months) relative to today.
+   - Flag two different patterns as worth a check-in, not just "frequent
+     leave": (a) notably frequent and/or recent leave -- a classic
+     overload/stress signal, and (b) an unusually long stretch with NO
+     leave at all despite being active -- a "not taking breaks" signal
+     that's just as worth flagging. Employees with an unremarkable,
+     moderate pattern are not flagged.
+   - Present findings as an observation for HR to follow up on personally
+     -- e.g. "X has taken N leave requests in the last Y weeks; worth a
+     check-in" or "Y hasn't taken any leave on record in the same period;
+     also worth a check-in" -- never as a diagnosis, and never speculate
+     about the reason behind anyone's leave pattern. Do not use clinical/
+     psychological language (e.g. "burnout," "depression") when describing
+     an individual -- describe the observed data pattern and let HR draw
+     conclusions. If asked to suggest a next step, suggest a manager
+     check-in or workload review, not anything resembling medical advice.
+
 Always finish your turn with a spoken/written answer, even after several
 tool calls -- don't end a turn on a tool call or tool result with no
 concluding sentence for the user.
@@ -181,7 +211,11 @@ def build_zoho_toolset(tool_filter=None) -> MCPToolset:
 root_agent = Agent(
     name="zoho_hr_payroll_agent",
     model=os.environ.get("ADK_MODEL", "gemini-2.5-flash"),
-    description="HR assistant backed by a Zoho Creator HR app via MCP.",
+    description=(
+        "HR assistant backed by a Zoho Creator HR app via MCP -- employee "
+        "lookup, workforce insights, leave, compensation, and leave-based "
+        "burnout-risk triage for HR ops."
+    ),
     instruction=INSTRUCTION,
     tools=[build_zoho_toolset()],
 )

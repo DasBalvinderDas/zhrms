@@ -36,9 +36,13 @@ whatever tools Zoho exposes into agent-callable tools at runtime.
 4. **Compensation** — report an employee's CTC from their employee record.
    (There's no separate pay-run/payslip system here — just whatever
    compensation field the Creator app's employee form has.)
+5. **Burnout-risk triage (HR ops)** — flag employees worth a human check-in
+   based on leave frequency/recency (the only workload proxy this app has,
+   no ticketing/time-tracking data is used). Explicitly framed as a data
+   pattern for HR to follow up on, never as a clinical/medical claim.
 
 The agent's instructions (`zoho_hr_agent/agent.py`) constrain it to these
-four areas and tell it to only report data actually returned by the MCP
+five areas and tell it to only report data actually returned by the MCP
 tools — never to fabricate employee, leave, or compensation data. Because a
 Creator app's forms/reports/fields are specific to whichever app is
 connected, the agent is instructed to *discover* them at runtime
@@ -156,8 +160,11 @@ the agent ever runs (they depend on which tool group you enabled in Step 5).
 
 ### Step 7 — Seed demo data
 
-Seed 3 demo employees (with compensation) and one sample leave request via
-Zoho's own MCP tools:
+Seed 3 fully-detailed demo employees (every profile field the form has,
+not just the mandatory ones, plus compensation linkage) and a deliberately
+varied leave history per employee — one with frequent/recent leave, one
+with a single leave months ago, one with none at all, so there's a real
+pattern for burnout-risk triage to reason over — via Zoho's own MCP tools:
 
 ```bash
 python scripts/seed_demo_data.py
